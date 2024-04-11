@@ -25,11 +25,15 @@ class BoxSeqGenerator(object):
         else:
             self.rng = np.random.default_rng()
 
-        self.reset()
+        self.reset(seed=seed)
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
+        # # We need the following line to seed self.np_random
+        # super().reset(seed=seed)
+
         self.box_list.clear()
         self._gen_more_boxes()
+        return self.next_N_boxes()
 
     def next_N_boxes(self):
         return self.box_list[:self.n_foreseeable_box]

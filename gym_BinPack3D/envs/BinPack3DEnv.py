@@ -1,6 +1,10 @@
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
+# import gym
+# from gym import error, spaces, utils
+# from gym.utils import seeding
+# replace gym with gymnasium
+import gymnasium as gym
+from gymnasium import error, spaces, utils
+from gymnasium.utils import seeding
 
 import numpy as np
 import copy
@@ -26,7 +30,7 @@ class PackingGame(gym.Env):
     box: you pack boxes into a container
     container: contain boxes
     """
-    metadata = {"render.modes": ["human", "rgb_array"]}
+    metadata = {"render_modes": ["human", "rgb_array"]}
 
     def __init__(   self, 
                     container_size = (20, 20, 20),
@@ -37,8 +41,10 @@ class PackingGame(gym.Env):
                     minSideLen = None,
                     maxSideLen = None,
                     genValidPlacementMask = True,
+                    render_mode = "rgb_array",
                     #data_name = None,  #TODO: load saved box seq
-                    **kwags):
+                    # **kwargs
+                    ):
         """
         Caveat: order in list "enabled_rotations" affects action meaning.
         below should work, other orders probably not
@@ -47,6 +53,7 @@ class PackingGame(gym.Env):
         [Rotate.NOOP, Rotate.XY, Rotate.XZ]
         [Rotate.NOOP, Rotate.XY, Rotate.XZ, Rotate.YZ]
         """
+        self.render_mode = render_mode
 
         self.container_size = container_size
         self.container_area = int(self.container_size[0] * self.container_size[1])
@@ -78,16 +85,22 @@ class PackingGame(gym.Env):
         self.genValidPlacementMask = genValidPlacementMask
 
         obsSpace = {
-            "height_map"   : gym.spaces.Box(low=0.0, high=self.container_size[2], shape=(self.container_size[0],self.container_size[1]) ),
-            "coming_boxes" : gym.spaces.Box(low=0.0, high=max(self.container_size), shape=(self.n_foreseeable_box,3) ),
+            "height_map"   : spaces.Box(low=0.0, high=self.container_size[2], shape=(self.container_size[0],self.container_size[1]) ),
+            "coming_boxes" : spaces.Box(low=0.0, high=max(self.container_size), shape=(self.n_foreseeable_box,3) ),
         }
 
         if self.genValidPlacementMask:
-            obsSpace["valid_placement_mask"] = gym.spaces.MultiBinary( [len(self.enabled_rotations), self.container_size[0],self.container_size[1] ])
+            obsSpace["valid_placement_mask"] = spaces.MultiBinary( [len(self.enabled_rotations), self.container_size[0],self.container_size[1] ])
 
-        self.action_space = gym.spaces.MultiDiscrete( [self.container_area, len(self.enabled_rotations)] )
-        self.observation_space = gym.spaces.Dict(obsSpace)
+        self.action_space = spaces.MultiDiscrete( [self.container_area, len(self.enabled_rotations)] )
+        self.observation_space = spaces.Dict(obsSpace)
         
+
+    def _get_obs(self):
+        return self.cur_observation
+    
+    def _get_info(self):
+        return {'counter':len(self.container.boxes), 'ratio':self.container.get_fill_ratio()}
 
     #def get_box_ratio(self):
     #    coming_box = self.next_box
@@ -153,20 +166,29 @@ class PackingGame(gym.Env):
             done = True
         
         info = {'counter':len(self.container.boxes), 'ratio':self.container.get_fill_ratio()}
-        return self.cur_observation, reward, done, info
-    
-    def reset(self):
-        self.boxSeqGenerator.reset()
-        self.container.reset()
-        return self.cur_observation
 
-    def render(self, mode='human'):
+        truncated = False
+        return self.cur_observation, reward, done, truncated, info
+    
+    def reset(self, seed=None, options=None):
+        # We need the following line to seed self.np_random
+        super().reset(seed=seed)
+
+        self.boxSeqGenerator.reset(seed=seed, options=options)
+        self.container.reset(seed=seed)
+
+        return self.cur_observation, self._get_info()
+
+    def render(self, mode= None):
         from gym_BinPack3D.envs.VisUtil import plot_box
         from mpl_toolkits.mplot3d import Axes3D
         from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
         import matplotlib.pyplot as plt
 
         iMode = plt.isinteractive()
+
+        if mode is None:
+            mode = self.render_mode
 
         if mode=='human':
             plt.interactive(True)

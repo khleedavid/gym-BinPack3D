@@ -56,9 +56,13 @@ class Container(object):
         self.dz = dz
         self.heightMap = np.zeros(shape=(dx, dy), dtype=np.int32)
 
-    def reset(self):
+    def reset(self, seed=None):
+        # # We need the following line to seed self.np_random
+        # super().reset(seed=seed)
+
         self.boxes = []
         self.heightMap[:,:] = 0
+        return self.regen_height_map()
 
     def regen_height_map(self):
         heightMap = np.zeros_like(self.heightMap)
