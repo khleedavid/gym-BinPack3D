@@ -55,6 +55,7 @@ class Container(object):
         self.dy = dy
         self.dz = dz
         self.heightMap = np.zeros(shape=(dx, dy), dtype=np.int32)
+        self.max_x = 0
 
     def reset(self, seed=None):
         # # We need the following line to seed self.np_random
@@ -108,6 +109,7 @@ class Container(object):
         x, y = pos
         if x+box.dx > self.dx or y+box.dy > self.dy: return -1
         if x < 0 or y < 0: return -1
+        # if x > self.max_x: return -1
 
         rec = self.heightMap[x:x+box.dx, y:y+box.dy]
         r00 = rec[ 0, 0]
@@ -135,7 +137,7 @@ class Container(object):
         if rm == max_h and supportedCorners == 4 and max_area/area > 0.50:
             return max_h
 
-        return -1
+        return 1
 
     def get_possible_positions(self, box):
         """
@@ -147,9 +149,9 @@ class Container(object):
         for i in range(self.dx-box.dx+1):
             for j in range(self.dy-box.dy+1):
                 pos = (i,j)
-                if self.check_box_placement_valid(box, pos) >= 0:
+                if self.check_box_placement_valid(box, pos) >= 0: # self.check_box_placement_valid(box, pos, self.max_x) >= 0:
                     action_mask[i, j] = 1
-
+        # print(action_mask)
         return action_mask
 
     def drop_box(self, box, pos):
@@ -182,18 +184,23 @@ if __name__=="__main__":
     box1 = Box(4,4,5)
     mask = container.get_possible_positions(box1)
     Container.pretty_print_bool_2D_array(mask)
+    print("Place succeed?", container.drop_box(box1, (0,0) ) )
     print("====")
 
     print("Case 2: long box")
-    box1 = Box(12,4,6)
+    box1 = Box(10,4,6)
+    container.reset()
+    Box.rotate(box1, Rotate.XZ)
     mask = container.get_possible_positions(box1)
     Container.pretty_print_bool_2D_array(mask)
+    print("Place succeed?", container.drop_box(box1, (0,0) ) )
     print("====")
 
     print("Case 3: small box")
     box1 = Box(1,1,1)
     mask = container.get_possible_positions(box1)
     Container.pretty_print_bool_2D_array(mask)
+    print("Place succeed?", container.drop_box(box1, (0,0) ) )
     print("====")
 
     print("Case 4: after small box placed")
@@ -202,6 +209,7 @@ if __name__=="__main__":
     container.drop_box(box2, (2,4) )
     mask = container.get_possible_positions(box1)
     Container.pretty_print_bool_2D_array(mask)
+    print("Place succeed?", container.drop_box(box1, (0,0) ) )
     print("====")
 
     print("Case 5: reset and place normal box")

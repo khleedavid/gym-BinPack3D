@@ -10,7 +10,7 @@ import numpy as np
 import copy
 
 from gym_BinPack3D.envs.Container import Container, Box
-from gym_BinPack3D.envs.BoxSeqGenerator import BoxSeqGenerator, RandomBoxCreator, CuttingBoxCreator, Rotate
+from gym_BinPack3D.envs.BoxSeqGenerator import BoxSeqGenerator, RandomBoxCreator, FixedBoxCreator, CuttingBoxCreator, Rotate
 
 
 class PackingGame(gym.Env):
@@ -69,7 +69,10 @@ class PackingGame(gym.Env):
             assert box_set is not None
             if boxSeqGenerator == 'random':
                 print('using random box sequence')
-                self.boxSeqGenerator = RandomBoxCreator(box_set, self.enabled_rotations, n_foreseeable_box)
+                self.boxSeqGenerator = RandomBoxCreator(box_set, self.enabled_rotations, n_foreseeable_box, seed=1)
+            elif boxSeqGenerator == 'fixed':
+                print('using fixed box sequence')
+                self.boxSeqGenerator = FixedBoxCreator(box_set, self.enabled_rotations, n_foreseeable_box, seed=1)
             elif boxSeqGenerator == 'CUT-1':
                 print('using CUT-1 logic box sequence')
                 self.boxSeqGenerator = CuttingBoxCreator(container_size, minSideLen, maxSideLen, "ByZ",
@@ -90,7 +93,7 @@ class PackingGame(gym.Env):
         }
 
         if self.genValidPlacementMask:
-            obsSpace["valid_placement_mask"] = spaces.MultiBinary( [len(self.enabled_rotations), self.container_size[0],self.container_size[1] ])
+            obsSpace["valid_placement_mask"] = spaces.MultiBinary( [len(self.enabled_rotations), self.container_size[0], self.container_size[1] ])
 
         self.action_space = spaces.MultiDiscrete( [self.container_area, len(self.enabled_rotations)] )
         self.observation_space = spaces.Dict(obsSpace)
@@ -155,15 +158,25 @@ class PackingGame(gym.Env):
         if (rotation == Rotate.XZ): box.dx, box.dz = box.dz, box.dx
         if (rotation == Rotate.YZ): box.dy, box.dz = box.dz, box.dy
 
+        if self.container.max_x < (box.dx + position[0]) and (box.dx + position[0]) < self.container_size[0]:
+            self.container.max_x = (box.dx + position[0])
+            #trying to limit action_space dynamically. but this does not work well
+            #self.action_space = spaces.MultiDiscrete( [self.container.max_x * self.container_size[1], len(self.enabled_rotations)] )
+
         succeeded = self.container.drop_box(box, position)
 
         if succeeded:
             self.boxSeqGenerator.pop_box() # remove current box from the list
-            reward = (box.dx*box.dy*box.dz) / self.container_vol * 10
+            
+            #reward function
+            #small penalty for placing box far from x axis=0 (inefficient placement)
+            #medium reward for placing a box in container
+            reward = -1.0*(position[0]) + self.container_size[0]*2.0 
             done = False
         else:            
-            reward = 0.0
+            reward = -200 #large penalty when stop stacking
             done = True
+            self.container.max_x = 0 #reset
         
         info = {'counter':len(self.container.boxes), 'ratio':self.container.get_fill_ratio()}
 

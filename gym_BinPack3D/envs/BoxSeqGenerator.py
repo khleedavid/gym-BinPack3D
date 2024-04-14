@@ -76,6 +76,39 @@ class RandomBoxCreator(BoxSeqGenerator):
             newBox = self._rotate_box(newBox)
             self.box_list.append( newBox)        
 
+
+class FixedBoxCreator(BoxSeqGenerator):
+    """
+    a fixed set of generated boxes following the sequence provided in box_set
+    example: if box_set contains box A, B, C. Box will be generated in sequence: A-B-C-A-B....
+    
+    enabled_rotations : list of Enum Rotate
+    n_foreseeable_box : int>=1
+    box_set : list of obj of type "Box"    
+    """
+    default_box_set = [ Box(1,1,1), Box(1,3,5)]
+
+    def __init__(self, box_set=None, *args, **kw):
+        if box_set is None: box_set = FixedBoxCreator.default_box_set
+        self.box_set = box_set
+        self.box_iter_to_generate = 0 #keep generating boxes following box_set sequence
+        self.num_of_boxes = len(box_set)
+        super().__init__(*args, **kw)
+
+        print ("Box to be sampled:")
+        for b in self.box_set: print (b)
+
+    def _gen_more_boxes(self):
+        while len(self.box_list)<self.n_foreseeable_box:
+            if (self.box_iter_to_generate) < self.num_of_boxes:
+                newBox = copy.deepcopy(self.box_set[self.box_iter_to_generate])
+                self.box_iter_to_generate += 1
+            else:
+                self.box_iter_to_generate = 0 #reset iter
+                newBox = copy.deepcopy(self.box_set[self.box_iter_to_generate])
+                self.box_iter_to_generate += 1
+            self.box_list.append( newBox)     
+
 class CuttingBoxCreator(BoxSeqGenerator):
     """
     Recursively bisect a container (i.e. a big box) to small boxes
